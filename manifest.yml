@@ -1,0 +1,7 @@
+---
+applications:
+- name:    compose-scylladb-helloworld-nodejs
+  host:    compose-scylladb-helloworld-nodejs
+  memory:  256M
+  services:
+    - my-compose-for-scylladb-service

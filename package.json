@@ -1,0 +1,35 @@
+{
+  "name": "node-scylladb-helloworld",
+  "version": "0.0.0",
+  "dependencies": {
+    "body-parser": "^1.15.2",
+    "cassandra-driver": "^3.1.6",
+    "cf-deployment-tracker-client": "*",
+    "cfenv": "1.0.x",
+    "commander": "^2.6.0",
+    "composeaddresstranslator": "^1.0.3",
+    "express": "~4.x",
+    "http-post": "^0.1.1",
+    "http-proxy": "^1.8.1",
+    "uuid": "^3.0.0"
+  },
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IBM-Bluemix/compose-scylladb-helloworld-nodejs.git"
+  },
+  "author": "IBM Corp.",
+  "contributors": [
+    {
+      "name": "Neil Dewhurst",
+      "email": "ndewhurs@uk.ibm.com"
+    }
+  ],
+  "bugs": {
+    "url": "https://github.com/IBM-Bluemix/compose-scylladb-helloworld-nodejs/issues"
+  },
+  "license": "Apache-2.0"
+}
