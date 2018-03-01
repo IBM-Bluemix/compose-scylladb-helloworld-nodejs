@@ -14,14 +14,20 @@
  * limitations under the License.
  */
 
- // First add the obligatory web framework
-var express = require('express');
-var app = express();
-var bodyParser = require('body-parser');
+"use strict";
+/* jshint node:true */
 
-app.use(bodyParser.urlencoded({
-  extended: false
-}));
+// Add the express web framework
+const express = require("express");
+const app = express();
+
+// Use body-parser to handle the PUT data
+const bodyParser = require("body-parser");
+app.use(
+    bodyParser.urlencoded({
+        extended: false
+    })
+);
 
 // Util is handy to have around, so thats why that's here.
 const util = require('util')
@@ -29,107 +35,149 @@ const util = require('util')
 const assert = require('assert');
 
 // We want to extract the port to publish our app on
-var port = process.env.PORT || 8080;
+let port = process.env.PORT || 8080;
 
 // Then we'll pull in the database client library
-var cassandra = require('cassandra-driver');
+const cassandra = require('cassandra-driver');
 
 // Use the address translator
-var compose = require('composeaddresstranslator');
+const compose = require('composeaddresstranslator');
 
 // Now lets get cfenv and ask it to parse the environment variable
-var cfenv = require('cfenv');
-var appenv = cfenv.getAppEnv();
+const cfenv = require('cfenv');
+
+// load local VCAP configuration  and service credentials
+let vcapLocal;
+try {
+  vcapLocal = require('./vcap-local.json');
+  console.log("Loaded local VCAP");
+} catch (e) { 
+    // console.log(e)
+}
+
+const appEnvOpts = vcapLocal ? { vcap: vcapLocal} : {}
+const appEnv = cfenv.getAppEnv(appEnvOpts);
 
 // Within the application environment (appenv) there's a services object
-var services = appenv.services;
+let services = appEnv.services;
 
 // The services object is a map named by service so we extract the one for PostgreSQL
-var scylladb_services = services["compose-for-scylladb"];
+let scylladb_services = services["compose-for-scylladb"];
 
 // This check ensures there is a services for MySQL databases
 assert(!util.isUndefined(scylladb_services), "Must be bound to compose-for-scylladb services");
 
 // We now take the first bound MongoDB service and extract it's credentials object
-var credentials = scylladb_services[0].credentials;
+let credentials = scylladb_services[0].credentials;
 
 // get a username and password from the uri
 const url = require('url');
-myURL = url.parse(credentials.uri);
-auth = myURL.auth;
-splitAuth = auth.split(":");
-username = splitAuth[0];
-password = splitAuth[1];
+let myURL = url.parse(credentials.uri);
+let auth = myURL.auth;
+let splitAuth = auth.split(":");
+let username = splitAuth[0];
+let password = splitAuth[1];
+let sslopts = myURL.protocol === "https:" ? {} : null;
 
 // get contactPoints for the connection
-translator=new compose.ComposeAddressTranslator();
+let translator=new compose.ComposeAddressTranslator();
 translator.setMap(credentials.maps);
 
-var authProvider = new cassandra.auth.PlainTextAuthProvider(username, password)
-var uuid = require('uuid')
+let authProvider = new cassandra.auth.PlainTextAuthProvider(username, password)
+let uuid = require('uuid')
 
-client = new cassandra.Client({
-                        contactPoints: translator.getContactPoints(),
-                        policies: {
-                            addressResolution: translator
-                        },
-                        authProvider: authProvider
-                      });
+let client = new cassandra.Client({
+  contactPoints: translator.getContactPoints(),
+  policies: {
+      addressResolution: translator
+  },
+  authProvider: authProvider,
+  sslOptions: sslopts
+});
 
-// create a keyspace and a table if they don't already exist
-client.execute("CREATE KEYSPACE IF NOT EXISTS examples WITH replication = {'class': 'SimpleStrategy', 'replication_factor': '3' };", function(error,result){
-  if (error) {
-      console.log(error);
-    } else {
-      console.log(result);
-      client.execute("CREATE TABLE IF NOT EXISTS examples.words (my_table_id uuid, word text, definition text, PRIMARY KEY(my_table_id));", function(err,res){
-        if (err) {
-            console.log(err);
+// Add a word to the database
+function addWord(word, definition) {
+  return new Promise(function(resolve, reject) {
+      client.execute(
+          "INSERT INTO grand_tour.words(my_table_id, word, definition) VALUES(?,?,?)", [uuid.v4(), word, definition], { prepare: true },
+          function(error, result) {
+              if (error) {
+                  console.log(error);
+                  reject(error);
+              } else {
+                  resolve(result.rows);
+              }
+          }
+      );
+  });
+}
+
+// Get words from the database
+function getWords() {
+  return new Promise(function(resolve, reject) {
+      // execute a query on our database
+      client.execute("SELECT * FROM grand_tour.words", function(err, result) {
+          if (err) {
+              console.log(err);
+              reject(err);
           } else {
-            console.log(res);
+              //console.log(result.rows);
+              resolve(result.rows);
           }
       });
-    }
-});
+  });
+}
 
 // We can now set up our web server. First up we set it to serve static pages
-app.use(express.static(__dirname + '/public'));
+app.use(express.static(__dirname + "/public"));
 
+// The user has clicked submit to add a word and definition to the database
+// Send the data to the addWord function and send a response if successful
 app.put("/words", function(request, response) {
-
-  client.execute("INSERT INTO examples.words(my_table_id, word, definition) VALUES(?,?,?)",
-     [uuid.v4(), request.body.word, request.body.definition],
-     { prepare: true },
-     function(error, result) {
-       if (error) {
-           console.log(error);
-           response.status(500).send(error);
-         } else {
-           console.log(result.rows);
-           response.send(result.rows);
-         }
-     });
-
+  addWord(request.body.word, request.body.definition)
+      .then(function(resp) {
+          response.send(resp);
+      })
+      .catch(function(err) {
+          console.log(err);
+          response.status(500).send(err);
+      });
 });
 
-// Read from the database when someone visits /hello
+// Read from the database when the page is loaded or after a word is successfully added
+// Use the getWords function to get a list of words and definitions from the database
 app.get("/words", function(request, response) {
-
-    // execute a query on our database
-    client.execute('SELECT * FROM examples.words', function (err, result) {
-      if (err) {
-        console.log(err);
-       response.status(500).send(err);
-      } else {
-        console.log(result.rows);
-       response.send(result.rows);
-      }
-
-    });
-
+  getWords()
+      .then(function(words) {
+          response.send(words);
+      })
+      .catch(function(err) {
+          console.log(err);
+          response.status(500).send(err);
+      });
 });
 
-// Now we go and listen for a connection.
-app.listen(port);
+console.log("Connecting");
+
+// create a keyspace and a table if they don't already exist
+client
+  .execute(
+      "CREATE KEYSPACE IF NOT EXISTS grand_tour WITH replication = {'class': 'SimpleStrategy', 'replication_factor': '3' };"
+  )
+  .then(result =>
+      client
+      .execute(
+          "CREATE TABLE IF NOT EXISTS grand_tour.words (my_table_id uuid, word text, definition text, PRIMARY KEY(my_table_id));"
+      )
+      .then(result => {
+          app.listen(port, function() {
+              console.log("Server is listening on port " + port);
+          });
+      })
+      .catch(err => {
+          console.log(err);
+          process.exit(1);
+      })
+  );
 
 require("cf-deployment-tracker-client").track();
