@@ -179,5 +179,3 @@ client
           process.exit(1);
       })
   );
-
-require("cf-deployment-tracker-client").track();

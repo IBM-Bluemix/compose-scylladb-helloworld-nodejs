@@ -4,7 +4,6 @@
   "dependencies": {
     "body-parser": "^1.15.2",
     "cassandra-driver": "^3.1.6",
-    "cf-deployment-tracker-client": "*",
     "cfenv": "1.0.x",
     "commander": "^2.6.0",
     "composeaddresstranslator": "^1.0.3",
