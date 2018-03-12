@@ -4,7 +4,6 @@
   "dependencies": {
     "body-parser": "^1.15.2",
     "cassandra-driver": "^3.1.6",
-    "cf-deployment-tracker-client": "*",
     "cfenv": "1.0.x",
     "commander": "^2.6.0",
     "composeaddresstranslator": "^1.0.3",
@@ -19,7 +18,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/IBM-Bluemix/compose-scylladb-helloworld-nodejs.git"
+    "url": "https://github.com/IBM-Cloud/compose-scylladb-helloworld-nodejs.git"
   },
   "author": "IBM Corp.",
   "contributors": [
@@ -29,7 +28,7 @@
     }
   ],
   "bugs": {
-    "url": "https://github.com/IBM-Bluemix/compose-scylladb-helloworld-nodejs/issues"
+    "url": "https://github.com/IBM-Cloud/compose-scylladb-helloworld-nodejs/issues"
   },
   "license": "Apache-2.0"
 }
